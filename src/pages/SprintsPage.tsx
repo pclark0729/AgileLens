@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Sprint } from '../types'
+import type { Sprint } from '../types'
 import { Plus, Calendar, Edit, Trash2, Upload } from 'lucide-react'
 import { SprintForm } from '../components/SprintForm'
 import { CSVImport } from '../components/CSVImport'
+import { PageLoading, TableLoading } from '../components/LoadingSpinner'
 
 export function SprintsPage() {
   const [sprints, setSprints] = useState<Sprint[]>([])
@@ -88,11 +89,7 @@ export function SprintsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
-    )
+    return <TableLoading />
   }
 
   return (
@@ -107,7 +104,7 @@ export function SprintsPage() {
         <div className="flex space-x-3">
           <button
             onClick={() => setShowImport(true)}
-            className="btn-secondary flex items-center"
+            className="btn-secondary flex items-center justify-center min-w-[120px]"
           >
             <Upload className="h-5 w-5 mr-2" />
             Import CSV
@@ -117,7 +114,7 @@ export function SprintsPage() {
               setEditingSprint(null)
               setShowForm(true)
             }}
-            className="btn-primary flex items-center"
+            className="btn-primary flex items-center justify-center min-w-[160px]"
           >
             <Plus className="h-5 w-5 mr-2" />
             New Sprint
@@ -181,7 +178,7 @@ export function SprintsPage() {
             <div className="mt-6">
               <button
                 onClick={() => setShowForm(true)}
-                className="btn-primary"
+                className="btn-primary flex items-center justify-center min-w-[160px] mx-auto"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 New Sprint

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Sprint } from '../types'
+import type { Sprint } from '../types'
 import { X } from 'lucide-react'
 
 interface SprintFormProps {

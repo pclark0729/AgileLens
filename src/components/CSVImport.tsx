@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Upload, Download, X, CheckCircle, AlertCircle } from 'lucide-react'
+import { validateCSVData, formatValidationErrors } from '../utils/validation'
+import { useAuth } from '../lib/auth-context'
 
 interface CSVImportProps {
   onComplete: () => void
-  onClose: () => void
+  onCancel: () => void
 }
 
-export function CSVImport({ onComplete, onClose }: CSVImportProps) {
+export function CSVImport({ onComplete, onCancel }: CSVImportProps) {
+  const { user } = useAuth()
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -16,6 +19,7 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
+    console.log('File selected:', selectedFile)
     if (selectedFile) {
       setFile(selectedFile)
       setError('')
@@ -40,6 +44,15 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
         return row
       })
 
+      // Validate the data
+      const validation = validateCSVData(data)
+      if (!validation.isValid) {
+        setError(formatValidationErrors(validation.errors))
+        setPreview([])
+        return
+      }
+
+      setError('')
       setPreview(data.slice(0, 5)) // Show first 5 rows as preview
     }
     reader.readAsText(file)
@@ -62,13 +75,34 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
     window.URL.revokeObjectURL(url)
   }
 
+  const ensureDefaultTeam = async () => {
+    // Ensure the default team exists
+    const { error } = await supabase
+      .from('teams')
+      .upsert({
+        id: '00000000-0000-0000-0000-000000000000',
+        name: 'Default Team',
+        created_at: new Date().toISOString()
+      }, { onConflict: 'id' })
+    
+    if (error) {
+      console.error('Error ensuring default team:', error)
+    }
+  }
+
   const handleImport = async () => {
-    if (!file) return
+    console.log('Import button clicked, file:', file)
+    if (!file) {
+      console.log('No file selected')
+      return
+    }
 
     setLoading(true)
     setError('')
 
     try {
+      // Ensure default team exists
+      await ensureDefaultTeam()
       const reader = new FileReader()
       reader.onload = async (e) => {
         const text = e.target?.result as string
@@ -83,7 +117,7 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
           })
           return row
         }).map(row => ({
-          team_id: 'default', // You might want to get this from user context
+          team_id: user?.team_id || '00000000-0000-0000-0000-000000000000', // Use user's team_id or default team
           sprint_name: row.sprint_name || '',
           start_date: row.start_date || '',
           end_date: row.end_date || '',
@@ -94,12 +128,18 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
           notes: row.notes || '',
         }))
 
+        console.log('Inserting sprints:', sprints)
+        
         const { error } = await supabase
           .from('sprints')
           .insert(sprints)
 
-        if (error) throw error
+        if (error) {
+          console.error('Supabase error:', error)
+          throw error
+        }
 
+        console.log('Import successful')
         setSuccess(true)
         setTimeout(() => {
           onComplete()
@@ -118,12 +158,12 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
       <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium text-gray-900">Import Sprint Data</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="h-6 w-6" />
-          </button>
+            <button
+              onClick={onCancel}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-6 w-6" />
+            </button>
         </div>
 
         <div className="space-y-6">
@@ -170,6 +210,13 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
                   <p className="pl-1">or drag and drop</p>
                 </div>
                 <p className="text-xs text-gray-500">CSV files only</p>
+                {file && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                    <p className="text-sm text-green-800">
+                      ✓ File selected: {file.name}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -224,10 +271,19 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
             </div>
           )}
 
+          {/* Debug Info */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-gray-100 p-3 rounded text-xs">
+              <p>Debug: File selected: {file ? 'Yes' : 'No'}</p>
+              <p>Debug: Loading: {loading ? 'Yes' : 'No'}</p>
+              <p>Debug: Button disabled: {(!file || loading) ? 'Yes' : 'No'}</p>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end space-x-3">
             <button
-              onClick={onClose}
+              onClick={onCancel}
               className="btn-secondary"
             >
               Cancel
@@ -235,7 +291,7 @@ export function CSVImport({ onComplete, onClose }: CSVImportProps) {
             <button
               onClick={handleImport}
               disabled={!file || loading}
-              className="btn-primary"
+              className={`btn-primary ${(!file || loading) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

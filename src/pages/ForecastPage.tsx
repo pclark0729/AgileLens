@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Sprint, Forecast } from '../types'
-import { TrendingUp, Brain, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react'
+import type { Sprint, Forecast } from '../types'
+import { TrendingUp, Brain, AlertTriangle, CheckCircle, RefreshCw, Plus } from 'lucide-react'
+import { PageLoading, CardLoading } from '../components/LoadingSpinner'
 
 export function ForecastPage() {
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [forecast, setForecast] = useState<Forecast | null>(null)
-  const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchSprints()
@@ -25,6 +26,8 @@ export function ForecastPage() {
       setSprints(data || [])
     } catch (error) {
       console.error('Error fetching sprints:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -36,30 +39,108 @@ export function ForecastPage() {
 
     setGenerating(true)
     try {
-      // Call the AI forecasting function
-      const { data, error } = await supabase.functions.invoke('generate-forecast', {
-        body: { sprints: sprints.slice(0, 5) } // Use last 5 sprints
-      })
+      // Try to call the AI forecasting function first
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-forecast', {
+          body: { sprints: sprints.slice(0, 5) } // Use last 5 sprints
+        })
 
-      if (error) throw error
+        if (error) throw error
 
-      // For now, create a mock forecast since we haven't set up the Edge Function yet
-      const mockForecast: Forecast = {
-        id: 'mock-forecast',
+        if (data) {
+          const aiForecast: Forecast = {
+            id: 'ai-forecast',
+            sprint_id: 'current-sprint',
+            recommended_capacity: data.recommended_capacity,
+            risk_summary: data.risk_summary,
+            recommendation_text: data.recommendation_text,
+            confidence_score: data.confidence_score,
+            created_at: new Date().toISOString()
+          }
+          setForecast(aiForecast)
+          return
+        }
+      } catch (aiError) {
+        console.warn('AI forecasting not available, using fallback calculation:', aiError)
+      }
+
+      // Fallback to enhanced calculation if AI is not available
+      const avgVelocity = sprints.reduce((sum, s) => sum + s.story_points_completed, 0) / sprints.length
+      const avgCompletionRate = sprints.reduce((sum, s) => 
+        sum + (s.story_points_completed / s.story_points_committed), 0
+      ) / sprints.length
+      const totalBlockers = sprints.reduce((sum, s) => sum + s.blockers, 0)
+      const avgBlockers = totalBlockers / sprints.length
+      
+      // Enhanced calculation with more factors
+      const velocityTrend = calculateVelocityTrend(sprints)
+      const riskFactor = Math.max(0.1, Math.min(0.3, avgBlockers / 5)) // Risk based on blockers
+      const completionRisk = avgCompletionRate < 0.8 ? 0.15 : 0.05 // Risk based on completion rate
+      
+      const recommendedCapacity = Math.round(avgVelocity * (1 - riskFactor - completionRisk))
+      const confidenceScore = Math.min(0.9, 0.5 + (sprints.length * 0.08) + (avgCompletionRate * 0.2))
+
+      const fallbackForecast: Forecast = {
+        id: 'fallback-forecast',
         sprint_id: 'current-sprint',
-        recommended_capacity: Math.round(sprints.reduce((sum, s) => sum + s.story_points_completed, 0) / sprints.length),
-        risk_summary: 'Based on your velocity trend, consider reducing scope by 10-15% to account for potential blockers.',
-        recommendation_text: `Your team's average velocity is ${Math.round(sprints.reduce((sum, s) => sum + s.story_points_completed, 0) / sprints.length)} story points. For the next sprint, we recommend committing to ${Math.round(sprints.reduce((sum, s) => sum + s.story_points_completed, 0) / sprints.length * 0.9)} story points to account for potential blockers and maintain a sustainable pace.`,
-        confidence_score: 0.85,
+        recommended_capacity: recommendedCapacity,
+        risk_summary: generateRiskSummary(avgBlockers, avgCompletionRate, velocityTrend),
+        recommendation_text: generateRecommendationText(avgVelocity, recommendedCapacity, avgCompletionRate, velocityTrend),
+        confidence_score: confidenceScore,
         created_at: new Date().toISOString()
       }
 
-      setForecast(mockForecast)
+      setForecast(fallbackForecast)
     } catch (error) {
       console.error('Error generating forecast:', error)
+      alert('Failed to generate forecast. Please try again.')
     } finally {
       setGenerating(false)
     }
+  }
+
+  const calculateVelocityTrend = (sprintData: Sprint[]) => {
+    if (sprintData.length < 2) return 'stable'
+    
+    const recent = sprintData.slice(0, 3).reduce((sum, s) => sum + s.story_points_completed, 0) / 3
+    const older = sprintData.slice(3, 6).reduce((sum, s) => sum + s.story_points_completed, 0) / 3
+    
+    if (recent > older * 1.1) return 'increasing'
+    if (recent < older * 0.9) return 'decreasing'
+    return 'stable'
+  }
+
+  const generateRiskSummary = (avgBlockers: number, completionRate: number, trend: string) => {
+    const risks = []
+    
+    if (avgBlockers > 2) risks.push('High blocker frequency')
+    if (completionRate < 0.8) risks.push('Low completion rate')
+    if (trend === 'decreasing') risks.push('Declining velocity trend')
+    
+    if (risks.length === 0) return 'Low risk - team performing well'
+    return `Key risks: ${risks.join(', ')}. Consider reducing scope by 10-15%.`
+  }
+
+  const generateRecommendationText = (avgVelocity: number, recommended: number, completionRate: number, trend: string) => {
+    let text = `Your team's average velocity is ${avgVelocity.toFixed(1)} story points. `
+    
+    if (trend === 'increasing') {
+      text += 'Great job! Your velocity is trending upward. '
+    } else if (trend === 'decreasing') {
+      text += 'Your velocity has been declining recently. '
+    }
+    
+    text += `For the next sprint, we recommend committing to ${recommended} story points `
+    
+    if (completionRate < 0.8) {
+      text += 'to improve completion rates and build confidence. '
+    } else {
+      text += 'to maintain a sustainable pace. '
+    }
+    
+    text += 'This accounts for potential blockers and maintains team momentum.'
+    
+    return text
   }
 
   const averageVelocity = sprints.length > 0 
@@ -69,6 +150,10 @@ export function ForecastPage() {
   const completionRate = sprints.length > 0
     ? Math.round((sprints.reduce((sum, s) => sum + s.story_points_completed, 0) / sprints.reduce((sum, s) => sum + s.story_points_committed, 0)) * 100)
     : 0
+
+  if (loading) {
+    return <PageLoading />
+  }
 
   return (
     <div className="space-y-6">
@@ -223,7 +308,7 @@ export function ForecastPage() {
       )}
 
       {/* Historical Data */}
-      {sprints.length > 0 && (
+      {sprints.length > 0 ? (
         <div className="card">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Historical Sprint Data</h3>
           <div className="overflow-x-auto">
@@ -281,6 +366,22 @@ export function ForecastPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : (
+        <div className="card">
+          <div className="text-center py-12">
+            <Brain className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No sprint data available</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Create at least 3 sprints to generate AI forecasts and insights.
+            </p>
+            <div className="mt-6">
+              <button className="btn-primary flex items-center justify-center min-w-[140px]">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Sprint
+              </button>
+            </div>
           </div>
         </div>
       )}

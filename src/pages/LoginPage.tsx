@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../lib/auth-context'
+import { useNavigate } from 'react-router-dom'
 import { TrendingUp, Mail, Lock, User } from 'lucide-react'
+import { EmailVerificationInfo } from '../components/EmailVerificationInfo'
 
 export function LoginPage() {
-  const { signIn, signUp, signInWithMagicLink } = useAuth()
+  const { signIn, signUp, signInWithMagicLink, user, loading: authLoading } = useAuth()
+  const navigate = useNavigate()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -11,6 +14,16 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [magicLinkSent, setMagicLinkSent] = useState(false)
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false)
+  const [verificationMessage, setVerificationMessage] = useState('')
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (user && !authLoading) {
+      console.log('User authenticated, redirecting to dashboard')
+      navigate('/', { replace: true })
+    }
+  }, [user, authLoading, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,11 +33,28 @@ export function LoginPage() {
     try {
       if (isLogin) {
         await signIn(email, password)
+        // The useEffect will handle the redirect when user state updates
       } else {
-        await signUp(email, password, name)
+        const result = await signUp(email, password, name)
+        if (result.needsEmailVerification) {
+          setEmailVerificationSent(true)
+          setVerificationMessage(result.message)
+        }
       }
     } catch (error: any) {
-      setError(error.message)
+      console.error('Authentication error:', error)
+      
+      // Handle specific error cases
+      if (error.message?.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Please check your credentials and try again.')
+      } else if (error.message?.includes('User not found')) {
+        setError('No account found with this email. Please sign up first.')
+        setIsLogin(false) // Switch to sign up mode
+      } else if (error.message?.includes('Email not confirmed')) {
+        setError('Please check your email and click the verification link before signing in.')
+      } else {
+        setError(error.message || 'An error occurred. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -66,6 +96,28 @@ export function LoginPage() {
               <p className="text-sm text-green-800">
                 Check your email for the magic link to sign in!
               </p>
+            </div>
+          ) : emailVerificationSent ? (
+            <div className="space-y-4">
+              <EmailVerificationInfo 
+                email={email}
+                onResendVerification={() => {
+                  // Resend verification email
+                  signUp(email, 'dummy-password', 'User').catch(console.error)
+                }}
+              />
+              <div className="text-center">
+                <button
+                  onClick={() => {
+                    setEmailVerificationSent(false)
+                    setVerificationMessage('')
+                    setIsLogin(true)
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-500"
+                >
+                  Already verified? Sign in
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -191,6 +243,8 @@ export function LoginPage() {
                 setIsLogin(!isLogin)
                 setError('')
                 setMagicLinkSent(false)
+                setEmailVerificationSent(false)
+                setVerificationMessage('')
               }}
               className="text-sm text-primary-600 hover:text-primary-500"
             >

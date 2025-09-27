@@ -37,11 +37,17 @@ export interface Forecast {
   created_at: string
 }
 
+export interface SignUpResult {
+  user: any
+  needsEmailVerification: boolean
+  message: string
+}
+
 export interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, name: string) => Promise<void>
+  signUp: (email: string, password: string, name: string) => Promise<SignUpResult>
   signOut: () => Promise<void>
   signInWithMagicLink: (email: string) => Promise<void>
 }
