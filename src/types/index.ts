@@ -30,6 +30,7 @@ export interface Sprint {
 export interface Forecast {
   id: string
   sprint_id: string
+  team_id: string
   recommended_capacity: number
   risk_summary: string
   recommendation_text: string

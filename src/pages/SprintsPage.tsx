@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Sprint } from '../types'
+import type { Sprint, Team } from '../types'
 import { Plus, Calendar, Edit, Trash2, Upload } from 'lucide-react'
 import { SprintForm } from '../components/SprintForm'
 import { CSVImport } from '../components/CSVImport'
+import { TeamSwitcher } from '../components/TeamSwitcher'
 import { PageLoading, TableLoading } from '../components/LoadingSpinner'
 
 export function SprintsPage() {
@@ -12,16 +13,16 @@ export function SprintsPage() {
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null)
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
 
-  useEffect(() => {
-    fetchSprints()
-  }, [])
-
-  const fetchSprints = async () => {
+  const fetchSprints = useCallback(async () => {
+    if (!selectedTeam) return
+    
     try {
       const { data, error } = await supabase
         .from('sprints')
         .select('*')
+        .eq('team_id', selectedTeam.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -31,7 +32,20 @@ export function SprintsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedTeam])
+
+  useEffect(() => {
+    // Set loading to false initially since we need a team selected first
+    setLoading(false)
+  }, [])
+
+  // Refetch sprints when selected team changes
+  useEffect(() => {
+    if (selectedTeam) {
+      setLoading(true)
+      fetchSprints()
+    }
+  }, [selectedTeam, fetchSprints])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this sprint?')) return
@@ -88,7 +102,16 @@ export function SprintsPage() {
     fetchSprints()
   }
 
-  if (loading) {
+  const handleTeamChange = (team: Team | null) => {
+    setSelectedTeam(team)
+  }
+
+  const handleManageTeams = () => {
+    // This could open a team management modal or navigate to a team management page
+    console.log('Manage teams clicked')
+  }
+
+  if (loading && selectedTeam) {
     return <TableLoading />
   }
 
@@ -101,7 +124,13 @@ export function SprintsPage() {
             Manage your team's sprint data and track performance
           </p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex items-center space-x-4">
+          <TeamSwitcher
+            selectedTeam={selectedTeam}
+            onTeamChange={handleTeamChange}
+            onManageTeams={handleManageTeams}
+          />
+          <div className="flex space-x-3">
           <button
             onClick={() => setShowImport(true)}
             className="btn-secondary flex items-center justify-center min-w-[120px]"
@@ -119,10 +148,23 @@ export function SprintsPage() {
             <Plus className="h-5 w-5 mr-2" />
             New Sprint
           </button>
+          </div>
         </div>
       </div>
 
+      {/* No Team Selected Message */}
+      {!selectedTeam && (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <Calendar className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No Team Selected</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Please select a team to view and manage sprints.
+          </p>
+        </div>
+      )}
+
       {/* Sprint List */}
+      {selectedTeam && (
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <ul className="divide-y divide-gray-200">
           {sprints.map((sprint) => (
@@ -187,11 +229,13 @@ export function SprintsPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Sprint Form Modal */}
       {showForm && (
         <SprintForm
           sprint={editingSprint}
+          selectedTeam={selectedTeam}
           onSubmit={handleFormSubmit}
           onClose={() => {
             setShowForm(false)

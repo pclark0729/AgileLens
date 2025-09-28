@@ -4,11 +4,12 @@ import { X } from 'lucide-react'
 
 interface SprintFormProps {
   sprint?: Sprint | null
+  selectedTeam?: { id: string } | null
   onSubmit: (sprint: Omit<Sprint, 'id' | 'created_at'>) => void
   onClose: () => void
 }
 
-export function SprintForm({ sprint, onSubmit, onClose }: SprintFormProps) {
+export function SprintForm({ sprint, selectedTeam, onSubmit, onClose }: SprintFormProps) {
   const [formData, setFormData] = useState({
     team_id: '',
     sprint_name: '',
@@ -34,8 +35,14 @@ export function SprintForm({ sprint, onSubmit, onClose }: SprintFormProps) {
         team_size: sprint.team_size,
         notes: sprint.notes || '',
       })
+    } else if (selectedTeam) {
+      // For new sprints, set the selected team
+      setFormData(prev => ({
+        ...prev,
+        team_id: selectedTeam.id,
+      }))
     }
-  }, [sprint])
+  }, [sprint, selectedTeam])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

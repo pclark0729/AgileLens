@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Team, User } from '../types'
-import { Users, Plus, Settings, Trash2, UserPlus, Mail } from 'lucide-react'
+import { Users, Plus, Settings, Trash2, UserPlus, Mail, X } from 'lucide-react'
 
 interface TeamManagementProps {
   onClose: () => void
@@ -132,7 +132,7 @@ export function TeamManagement({ onClose }: TeamManagementProps) {
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
           >
-            <Settings className="h-6 w-6" />
+            <X className="h-6 w-6" />
           </button>
         </div>
 
