@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { Sprint, Forecast, Team } from '../types'
 import { TrendingUp, Brain, AlertTriangle, CheckCircle, RefreshCw, Plus } from 'lucide-react'
 import { InfoTooltip } from '../components/InfoTooltip'
-import { PageLoading, CardLoading } from '../components/LoadingSpinner'
+import { PageLoading } from '../components/LoadingSpinner'
 import { TeamSwitcher } from '../components/TeamSwitcher'
 import { ForecastHistory } from '../components/ForecastHistory'
 
@@ -185,9 +185,6 @@ export function ForecastPage() {
     console.log('Manage teams clicked')
   }
 
-  const handleForecastSelect = (forecast: Forecast) => {
-    setForecast(forecast)
-  }
 
   const averageVelocity = sprints.length > 0 
     ? Math.round(sprints.reduce((sum, s) => sum + s.story_points_completed, 0) / sprints.length)

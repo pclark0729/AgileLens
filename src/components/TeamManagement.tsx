@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Team, User } from '../types'
-import { Users, Plus, Settings, Trash2, UserPlus, Mail, X } from 'lucide-react'
+import { Users, Plus, Trash2, UserPlus, Mail, X } from 'lucide-react'
 
 interface TeamManagementProps {
   onClose: () => void

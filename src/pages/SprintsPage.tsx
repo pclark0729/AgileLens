@@ -5,7 +5,7 @@ import { Plus, Calendar, Edit, Trash2, Upload } from 'lucide-react'
 import { SprintForm } from '../components/SprintForm'
 import { CSVImport } from '../components/CSVImport'
 import { TeamSwitcher } from '../components/TeamSwitcher'
-import { PageLoading, TableLoading } from '../components/LoadingSpinner'
+import { TableLoading } from '../components/LoadingSpinner'
 
 export function SprintsPage() {
   const [sprints, setSprints] = useState<Sprint[]>([])
@@ -248,7 +248,7 @@ export function SprintsPage() {
       {showImport && (
         <CSVImport
           onComplete={handleImportComplete}
-          onClose={() => setShowImport(false)}
+          onCancel={() => setShowImport(false)}
         />
       )}
     </div>

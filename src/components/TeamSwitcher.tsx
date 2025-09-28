@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Team } from '../types'
-import { ChevronDown, Users, Plus, Settings, X } from 'lucide-react'
+import { ChevronDown, Users, Plus, Settings } from 'lucide-react'
 
 interface TeamSwitcherProps {
   selectedTeam: Team | null

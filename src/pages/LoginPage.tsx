@@ -15,7 +15,6 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [emailVerificationSent, setEmailVerificationSent] = useState(false)
-  const [verificationMessage, setVerificationMessage] = useState('')
 
   // Redirect if user is already authenticated
   useEffect(() => {
@@ -38,7 +37,6 @@ export function LoginPage() {
         const result = await signUp(email, password, name)
         if (result.needsEmailVerification) {
           setEmailVerificationSent(true)
-          setVerificationMessage(result.message)
         }
       }
     } catch (error: any) {
@@ -110,7 +108,6 @@ export function LoginPage() {
                 <button
                   onClick={() => {
                     setEmailVerificationSent(false)
-                    setVerificationMessage('')
                     setIsLogin(true)
                   }}
                   className="text-sm text-blue-600 hover:text-blue-500"
@@ -244,7 +241,6 @@ export function LoginPage() {
                 setError('')
                 setMagicLinkSent(false)
                 setEmailVerificationSent(false)
-                setVerificationMessage('')
               }}
               className="text-sm text-primary-600 hover:text-primary-500"
             >
