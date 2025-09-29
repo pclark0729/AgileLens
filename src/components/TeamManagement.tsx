@@ -23,9 +23,32 @@ export function TeamManagement({ onClose }: TeamManagementProps) {
 
   const fetchTeams = async () => {
     try {
+      // First get the current user's team_id
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setLoading(false)
+        return
+      }
+
+      // Get user's profile to get their team_id
+      const { data: userProfile, error: userError } = await supabase
+        .from('users')
+        .select('team_id')
+        .eq('id', user.id)
+        .single()
+
+      if (userError || !userProfile?.team_id) {
+        console.error('User not assigned to any team:', userError)
+        setTeams([])
+        setLoading(false)
+        return
+      }
+
+      // Get the team the user belongs to
       const { data, error } = await supabase
         .from('teams')
         .select('*')
+        .eq('id', userProfile.team_id)
         .order('created_at', { ascending: false })
 
       if (error) throw error

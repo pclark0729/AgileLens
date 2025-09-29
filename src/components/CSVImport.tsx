@@ -97,12 +97,15 @@ export function CSVImport({ onComplete, onCancel }: CSVImportProps) {
       return
     }
 
+    if (!user?.team_id) {
+      setError('You must be assigned to a team before importing data. Please contact your administrator.')
+      return
+    }
+
     setLoading(true)
     setError('')
 
     try {
-      // Ensure default team exists
-      await ensureDefaultTeam()
       const reader = new FileReader()
       reader.onload = async (e) => {
         const text = e.target?.result as string
@@ -117,7 +120,7 @@ export function CSVImport({ onComplete, onCancel }: CSVImportProps) {
           })
           return row
         }).map(row => ({
-          team_id: user?.team_id || '00000000-0000-0000-0000-000000000000', // Use user's team_id or default team
+          team_id: user?.team_id, // Only use user's team_id, don't fallback to default team
           sprint_name: row.sprint_name || '',
           start_date: row.start_date || '',
           end_date: row.end_date || '',

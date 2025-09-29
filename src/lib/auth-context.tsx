@@ -110,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           
           // Try to create user profile with proper RLS handling
+          // The team will be automatically created by the database trigger
           const { data: newProfile, error: createError } = await supabase
             .from('users')
             .insert({
@@ -117,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: supabaseUser.email!,
               name: userName,
               role: 'member',
+              team_id: null, // Will be set by the database trigger
             })
             .select()
             .single()
@@ -147,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                       email: supabaseUser.email!,
                       name: userName,
                       role: 'member',
+                      team_id: null, // Will be set by the database trigger
                     })
                     .select()
                     .single()
